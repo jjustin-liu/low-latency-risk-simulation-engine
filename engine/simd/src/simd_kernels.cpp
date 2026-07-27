@@ -51,7 +51,10 @@ void NormCdfBatchImpl(const float* HWY_RESTRICT x, float* HWY_RESTRICT out, std:
     const std::size_t lanes = hn::Lanes(d);
     std::size_t i = 0;
     for (; i + lanes <= n; i += lanes) {
-        hn::Store(NormCdfV(d, hn::LoadU(d, x + i)), d, out + i);
+        // Unaligned store: `out` is a caller-provided buffer with no alignment
+        // guarantee; an aligned Store would fault on AVX2/AVX-512 (wider than the
+        // buffer's 16-byte alignment).
+        hn::StoreU(NormCdfV(d, hn::LoadU(d, x + i)), d, out + i);
     }
     if (i < n) {
         const std::size_t rem = n - i;
