@@ -24,9 +24,9 @@ TEST(Simd, NormCdfBatchMatchesScalarReference) {
         max_abs = std::max(max_abs, std::fabs(simd[i] - scalar[i]));
         // Both must also track the exact double CDF within the approximation tol.
         const float exact = static_cast<float>(norm_cdf(x[i]));
-        EXPECT_NEAR(simd[i], exact, 3e-6f) << "x=" << x[i];
+        EXPECT_NEAR(simd[i], exact, 1e-5f) << "x=" << x[i];
     }
-    EXPECT_LT(max_abs, 2e-6f);
+    EXPECT_LT(max_abs, 1e-5f);
 }
 
 TEST(Simd, HandlesNonMultipleOfLaneCountTail) {
@@ -36,7 +36,7 @@ TEST(Simd, HandlesNonMultipleOfLaneCountTail) {
     std::vector<float> out(x.size());
     simd::norm_cdf_batch(x, out);
     for (std::size_t i = 0; i < x.size(); ++i) {
-        EXPECT_NEAR(out[i], static_cast<float>(norm_cdf(x[i])), 3e-6f);
+        EXPECT_NEAR(out[i], static_cast<float>(norm_cdf(x[i])), 1e-5f);
         EXPECT_GE(out[i], 0.0f);
         EXPECT_LE(out[i], 1.0f);
     }

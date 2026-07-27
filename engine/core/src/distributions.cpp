@@ -94,11 +94,34 @@ static double betacf(double a, double b, double x) noexcept {
     return h;
 }
 
+// Lanczos log-gamma. Self-contained and THREAD-SAFE: unlike std::lgamma (which
+// writes the global `signgam`, a data race when called from multiple Monte-Carlo
+// threads), this touches no shared state. Accurate to ~1e-15 for x > 0.
+static double log_gamma(double x) noexcept {
+    static constexpr double g = 7.0;
+    static constexpr double c[9] = {0.99999999999980993, 676.5203681218851,
+                                    -1259.1392167224028,  771.32342877765313,
+                                    -176.61502916214059,  12.507343278686905,
+                                    -0.13857109526572012, 9.9843695780195716e-6,
+                                    1.5056327351493116e-7};
+    if (x < 0.5) {
+        // Reflection: ln Γ(x) = ln(π / sin(πx)) − ln Γ(1−x).
+        constexpr double kPi = 3.141592653589793238462643383279;
+        return std::log(kPi / std::sin(kPi * x)) - log_gamma(1.0 - x);
+    }
+    x -= 1.0;
+    double acc = c[0];
+    for (int i = 1; i < 9; ++i) acc += c[i] / (x + static_cast<double>(i));
+    const double t = x + g + 0.5;
+    // Γ(x+1) = sqrt(2π) · t^(x+0.5) · e^(-t) · acc.
+    return std::log(kSqrt2Pi) + (x + 0.5) * std::log(t) - t + std::log(acc);
+}
+
 double reg_incomplete_beta(double a, double b, double x) noexcept {
     if (x <= 0.0) return 0.0;
     if (x >= 1.0) return 1.0;
     const double lbeta =
-        std::lgamma(a + b) - std::lgamma(a) - std::lgamma(b) + a * std::log(x) + b * std::log1p(-x);
+        log_gamma(a + b) - log_gamma(a) - log_gamma(b) + a * std::log(x) + b * std::log1p(-x);
     const double front = std::exp(lbeta);
     if (x < (a + 1.0) / (a + b + 2.0)) {
         return front * betacf(a, b, x) / a;
