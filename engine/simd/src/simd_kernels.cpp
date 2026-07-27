@@ -55,7 +55,9 @@ void NormCdfBatchImpl(const float* HWY_RESTRICT x, float* HWY_RESTRICT out, std:
     }
     if (i < n) {
         const std::size_t rem = n - i;
-        hn::Store(NormCdfV(d, hn::LoadN(d, x + i, rem)), d, out + i);  // masked tail
+        // Masked load AND masked store: a plain Store would write a full vector
+        // (up to 16 floats on AVX-512) past the end of `out` -> heap overflow.
+        hn::StoreN(NormCdfV(d, hn::LoadN(d, x + i, rem)), d, out + i, rem);
     }
 }
 
