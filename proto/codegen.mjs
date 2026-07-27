@@ -99,9 +99,10 @@ function genCpp() {
     }
     // fixed
     for (const f of m.fixed) L.push(`    detail::put(p, fixed.${f.name});`);
-    // arrays
+    // arrays (guard the memcpy: passing a null pointer to memcpy is UB even for
+    // a zero-length array, which an empty std::span::data() may return)
     for (const a of m.arrays) {
-      L.push(`    std::memcpy(p, ${a.name}.data(), ${SIZE[a.type]} * fixed.${a.count});`);
+      L.push(`    if (fixed.${a.count} > 0) std::memcpy(p, ${a.name}.data(), ${SIZE[a.type]} * fixed.${a.count});`);
       L.push(`    p += ${SIZE[a.type]} * fixed.${a.count};`);
     }
     L.push('    return buf;');

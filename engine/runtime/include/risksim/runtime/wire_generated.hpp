@@ -70,19 +70,19 @@ struct SnapshotFixed {
     detail::put(p, fixed.es);
     detail::put(p, fixed.total_loss);
     detail::put(p, fixed.num_defaults);
-    std::memcpy(p, node_health.data(), 4 * fixed.n_nodes);
+    if (fixed.n_nodes > 0) std::memcpy(p, node_health.data(), 4 * fixed.n_nodes);
     p += 4 * fixed.n_nodes;
-    std::memcpy(p, node_value.data(), 4 * fixed.n_nodes);
+    if (fixed.n_nodes > 0) std::memcpy(p, node_value.data(), 4 * fixed.n_nodes);
     p += 4 * fixed.n_nodes;
-    std::memcpy(p, node_x.data(), 4 * fixed.n_nodes);
+    if (fixed.n_nodes > 0) std::memcpy(p, node_x.data(), 4 * fixed.n_nodes);
     p += 4 * fixed.n_nodes;
-    std::memcpy(p, node_y.data(), 4 * fixed.n_nodes);
+    if (fixed.n_nodes > 0) std::memcpy(p, node_y.data(), 4 * fixed.n_nodes);
     p += 4 * fixed.n_nodes;
-    std::memcpy(p, edge_src.data(), 4 * fixed.n_edges);
+    if (fixed.n_edges > 0) std::memcpy(p, edge_src.data(), 4 * fixed.n_edges);
     p += 4 * fixed.n_edges;
-    std::memcpy(p, edge_dst.data(), 4 * fixed.n_edges);
+    if (fixed.n_edges > 0) std::memcpy(p, edge_dst.data(), 4 * fixed.n_edges);
     p += 4 * fixed.n_edges;
-    std::memcpy(p, edge_flow.data(), 4 * fixed.n_edges);
+    if (fixed.n_edges > 0) std::memcpy(p, edge_flow.data(), 4 * fixed.n_edges);
     p += 4 * fixed.n_edges;
     return buf;
 }
