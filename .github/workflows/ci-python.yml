@@ -1,0 +1,110 @@
+name: ci-python
+
+# Research/validation suite: build the nanobind bindings against the pure C++
+# core, then lint (ruff/mypy if configured) and run the model-validation tests.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "engine/**"
+      - "research/**"
+      - "proto/schema.json"
+      - "cmake/**"
+      - "CMakeLists.txt"
+      - ".github/workflows/ci-python.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "engine/**"
+      - "research/**"
+      - "proto/schema.json"
+      - "cmake/**"
+      - "CMakeLists.txt"
+      - ".github/workflows/ci-python.yml"
+
+concurrency:
+  group: ci-python-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: bindings + validation
+    runs-on: ubuntu-latest
+    env:
+      CPM_SOURCE_CACHE: ${{ github.workspace }}/.cpm-cache
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ccache
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Cache CPM sources
+        uses: actions/cache@v4
+        with:
+          path: .cpm-cache
+          key: cpm-Linux-${{ hashFiles('cmake/**', 'engine/**/CMakeLists.txt', 'CMakeLists.txt') }}
+          restore-keys: |
+            cpm-Linux-
+
+      - name: Build nanobind bindings (RISKSIM_BUILD_PY=ON)
+        run: |
+          cmake -S . -B build/py \
+            -DRISKSIM_BUILD_PY=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake --build build/py
+
+      - name: Guard — require research tests
+        id: guard
+        shell: bash
+        run: |
+          if [ -d research/tests ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "research/tests not found — skipping Python lint/test."
+          fi
+
+      - name: Sync research environment
+        if: steps.guard.outputs.present == 'true'
+        working-directory: research
+        run: uv sync
+
+      - name: Ruff (if configured)
+        if: steps.guard.outputs.present == 'true'
+        working-directory: research
+        shell: bash
+        run: |
+          if [ -f pyproject.toml ] && grep -q "ruff" pyproject.toml || ls .ruff.toml ruff.toml >/dev/null 2>&1; then
+            uv run ruff check .
+          else
+            echo "Ruff not configured — skipping."
+          fi
+
+      - name: Mypy (if configured)
+        if: steps.guard.outputs.present == 'true'
+        working-directory: research
+        shell: bash
+        run: |
+          if [ -f pyproject.toml ] && grep -q "mypy" pyproject.toml || ls mypy.ini .mypy.ini >/dev/null 2>&1; then
+            uv run mypy .
+          else
+            echo "Mypy not configured — skipping."
+          fi
+
+      - name: Run validation tests
+        if: steps.guard.outputs.present == 'true'
+        run: uv run pytest research/tests

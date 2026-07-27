@@ -1,0 +1,48 @@
+# syntax=docker/dockerfile:1
+
+# ---------------------------------------------------------------------------
+# Multi-stage build for the RiskSim C++ engine.
+#   build stage  : full toolchain (gcc + cmake + git for CPM), builds Release.
+#   runtime stage: slim image with just the statically-linkable binary.
+# Base images are pinned by tag for reproducibility.
+# ---------------------------------------------------------------------------
+
+# ---- build stage ----------------------------------------------------------
+# gcc:13-bookworm ships GCC 13 (C++23) on Debian bookworm (CMake >= 3.25).
+FROM gcc:13-bookworm AS build
+
+# CMake and git (CPM fetches pinned deps over git at configure time).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends cmake git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+
+# Copy the sources needed to build the engine (CMake resolves deps via CPM).
+COPY CMakeLists.txt CMakePresets.json ./
+COPY cmake/ ./cmake/
+COPY engine/ ./engine/
+COPY proto/ ./proto/
+
+# Configure + build the Release engine. CPM caches sources under .cpm-cache.
+RUN cmake --preset release \
+    && cmake --build --preset release --target risksim_engine
+
+# ---- runtime stage --------------------------------------------------------
+# Slim runtime; only needs the C/C++ runtime libraries the binary links.
+FROM debian:bookworm-slim AS runtime
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libstdc++6 libgcc-s1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy just the compiled engine binary from the build stage.
+COPY --from=build \
+    /src/build/release/engine/runtime/risksim_engine \
+    /usr/local/bin/risksim_engine
+
+# Run as an unprivileged user.
+RUN useradd --system --no-create-home --uid 10001 risksim
+USER risksim
+
+ENTRYPOINT ["/usr/local/bin/risksim_engine"]

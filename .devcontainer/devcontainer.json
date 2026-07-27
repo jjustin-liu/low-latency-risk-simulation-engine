@@ -1,0 +1,48 @@
+{
+  // One-command onboarding for RiskSim: C++23 toolchain (gcc + clang + cmake),
+  // Node 22 (web + bridge + wire codegen), and Python 3.12 + uv (research).
+  "name": "RiskSim",
+
+  // Microsoft's C++ devcontainer image ships gcc, clang, cmake, gdb, and ninja.
+  "image": "mcr.microsoft.com/devcontainers/cpp:1-bookworm",
+
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12"
+    }
+  },
+
+  "containerEnv": {
+    // Reuse the in-tree CPM cache so deps are fetched once and shared.
+    "CPM_SOURCE_CACHE": "${containerWorkspaceFolder}/.cpm-cache"
+  },
+
+  // Install uv (research) and warm the CPM cache so the first real build is fast.
+  // Configuring the debug preset fetches + pins all CPM deps into .cpm-cache.
+  "postCreateCommand": "curl -LsSf https://astral.sh/uv/install.sh | sh && cmake --preset debug",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "llvm-vs-code-extensions.vscode-clangd",
+        "xaver.clang-format",
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint"
+      ],
+      "settings": {
+        "cmake.configureOnOpen": false,
+        "C_Cpp.default.compileCommands": "${workspaceFolder}/build/debug/compile_commands.json"
+      }
+    }
+  },
+
+  // ninja is available in the base image but the CMake presets use Unix Makefiles.
+  "remoteUser": "vscode"
+}

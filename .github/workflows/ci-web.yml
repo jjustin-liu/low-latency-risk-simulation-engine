@@ -1,0 +1,80 @@
+name: ci-web
+
+# Next.js frontend: type-check, build, and lint. Guarded so it only runs when
+# web/ actually has a package.json.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - ".github/workflows/ci-web.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "web/**"
+      - ".github/workflows/ci-web.yml"
+
+concurrency:
+  group: ci-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: typecheck + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard — require web/package.json
+        id: guard
+        shell: bash
+        run: |
+          if [ -f package.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "web/package.json not found — skipping web CI."
+          fi
+
+      - name: Setup Node
+        if: steps.guard.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        if: steps.guard.outputs.present == 'true'
+        run: npm ci
+
+      - name: Type-check
+        if: steps.guard.outputs.present == 'true'
+        run: npx tsc --noEmit
+
+      - name: Lint (ESLint, if configured)
+        if: steps.guard.outputs.present == 'true'
+        shell: bash
+        run: |
+          if ls .eslintrc* eslint.config.* >/dev/null 2>&1; then
+            npx --no-install eslint . || npx eslint .
+          else
+            echo "No ESLint config — skipping."
+          fi
+
+      - name: Format check (Prettier, if configured)
+        if: steps.guard.outputs.present == 'true'
+        shell: bash
+        run: |
+          if ls .prettierrc* prettier.config.* >/dev/null 2>&1; then
+            npx --no-install prettier --check . || npx prettier --check .
+          else
+            echo "No Prettier config — skipping."
+          fi
+
+      - name: Build
+        if: steps.guard.outputs.present == 'true'
+        run: npm run build

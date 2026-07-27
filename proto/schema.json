@@ -1,0 +1,36 @@
+{
+  "magic": "RSIM",
+  "header": [
+    { "name": "magic", "type": "u32" },
+    { "name": "version", "type": "u16" },
+    { "name": "msg_type", "type": "u16" },
+    { "name": "tick_seq", "type": "u64" },
+    { "name": "sim_time_ns", "type": "u64" },
+    { "name": "wall_emit_ns", "type": "u64" },
+    { "name": "body_len", "type": "u32" }
+  ],
+  "messages": [
+    {
+      "name": "Snapshot",
+      "type_id": 1,
+      "doc": "Full network state for one simulation tick. SoA layout: contiguous scalar arrays so the browser can build zero-copy typed-array views straight into deck.gl binary attributes.",
+      "fixed": [
+        { "name": "n_nodes", "type": "u32" },
+        { "name": "n_edges", "type": "u32" },
+        { "name": "var", "type": "f32", "doc": "systemic VaR at alpha" },
+        { "name": "es", "type": "f32", "doc": "systemic Expected Shortfall at alpha" },
+        { "name": "total_loss", "type": "f32" },
+        { "name": "num_defaults", "type": "u32" }
+      ],
+      "arrays": [
+        { "name": "node_health", "type": "f32", "count": "n_nodes", "doc": "1=healthy .. 0=fully impaired" },
+        { "name": "node_value", "type": "f32", "count": "n_nodes", "doc": "total assets (marker size)" },
+        { "name": "node_x", "type": "f32", "count": "n_nodes" },
+        { "name": "node_y", "type": "f32", "count": "n_nodes" },
+        { "name": "edge_src", "type": "u32", "count": "n_edges" },
+        { "name": "edge_dst", "type": "u32", "count": "n_edges" },
+        { "name": "edge_flow", "type": "f32", "count": "n_edges", "doc": "exposure amount (edge width)" }
+      ]
+    }
+  ]
+}

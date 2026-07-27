@@ -1,0 +1,62 @@
+# syntax=docker/dockerfile:1
+
+# ---------------------------------------------------------------------------
+# Bridge image. The bridge is the single web-facing process: in live mode it
+# spawns the engine binary (baked in here) and fans its stdout out over
+# WebSocket; in replay mode it loops data/replay.bin with no engine at all.
+#
+# Stages:
+#   engine-build : compile the Release engine (same toolchain as Dockerfile.engine).
+#   runtime      : Node 22 + the engine binary + the bridge source.
+# ---------------------------------------------------------------------------
+
+# ---- engine build stage ---------------------------------------------------
+FROM gcc:13-bookworm AS engine-build
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends cmake git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+COPY CMakeLists.txt CMakePresets.json ./
+COPY cmake/ ./cmake/
+COPY engine/ ./engine/
+COPY proto/ ./proto/
+RUN cmake --preset release \
+    && cmake --build --preset release --target risksim_engine
+
+# ---- runtime stage --------------------------------------------------------
+FROM node:22-bookworm-slim AS runtime
+
+# The C++ runtime libs the engine binary links against.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libstdc++6 libgcc-s1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Bridge dependencies (production only).
+COPY bridge/package.json bridge/package-lock.json ./
+RUN npm ci --omit=dev
+
+# Bridge source.
+COPY bridge/src/ ./src/
+
+# Engine binary baked in; the bridge spawns it in live mode.
+COPY --from=engine-build \
+    /src/build/release/engine/runtime/risksim_engine \
+    /usr/local/bin/risksim_engine
+
+# Default replay recording (used by the replay profile / offline demo).
+COPY data/replay.bin /app/data/replay.bin
+
+ENV RISKSIM_ENGINE=/usr/local/bin/risksim_engine \
+    RISKSIM_REPLAY=/app/data/replay.bin \
+    PORT=8080 \
+    RISKSIM_MODE=live
+
+# Unprivileged runtime user (node image ships a `node` user).
+USER node
+
+EXPOSE 8080
+CMD ["node", "src/server.mjs"]

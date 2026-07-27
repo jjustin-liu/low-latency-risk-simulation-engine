@@ -1,0 +1,70 @@
+# RiskSim local stack.
+#
+# Topology: the bridge is the single web-facing process. In the default (live)
+# stack the bridge spawns the engine binary baked into its image and streams its
+# stdout out over WebSocket. The web service is the Next.js frontend. A `replay`
+# profile swaps the live bridge for one that loops data/replay.bin — a cheap,
+# engine-free always-on demo.
+#
+#   Live:    docker compose -f deploy/docker-compose.yml up
+#   Replay:  docker compose -f deploy/docker-compose.yml --profile replay up bridge-replay web
+#
+# Build contexts are the repo root (`..`) because the Dockerfiles COPY engine/,
+# bridge/, web/, proto/, and data/ from there.
+
+name: risksim
+
+services:
+  # --- live: bridge spawns the baked-in engine (default stack) --------------
+  bridge:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.bridge
+    image: risksim/bridge:local
+    environment:
+      RISKSIM_MODE: live
+      PORT: "8080"
+      # RISKSIM_ENGINE / RISKSIM_REPLAY have sensible defaults baked in.
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # --- replay: engine-free demo looping data/replay.bin ---------------------
+  bridge-replay:
+    profiles: ["replay"]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.bridge
+    image: risksim/bridge:local
+    environment:
+      RISKSIM_MODE: replay
+      PORT: "8080"
+      RISKSIM_REPLAY: /app/data/replay.bin
+    volumes:
+      # Mount the recording read-only so it can be refreshed without a rebuild.
+      - ../data/replay.bin:/app/data/replay.bin:ro
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  # --- frontend (Next.js) ---------------------------------------------------
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+      args:
+        # NEXT_PUBLIC_* is inlined into the client bundle at build time.
+        NEXT_PUBLIC_BRIDGE_URL: ${NEXT_PUBLIC_BRIDGE_URL:-ws://localhost:8080}
+    image: risksim/web:local
+    environment:
+      NEXT_PUBLIC_BRIDGE_URL: ${NEXT_PUBLIC_BRIDGE_URL:-ws://localhost:8080}
+      # Passed through from the host env for the server-side Claude NL console.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports:
+      - "3000:3000"
+    restart: unless-stopped

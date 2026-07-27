@@ -1,0 +1,76 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CPM_SOURCE_CACHE": "${sourceDir}/.cpm-cache"
+      }
+    },
+    {
+      "name": "debug",
+      "inherits": "base",
+      "displayName": "Debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "release",
+      "inherits": "base",
+      "displayName": "Release (-O3)",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG"
+      }
+    },
+    {
+      "name": "asan-ubsan",
+      "inherits": "base",
+      "displayName": "Debug + ASan/UBSan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "RISKSIM_SANITIZER": "asan-ubsan"
+      }
+    },
+    {
+      "name": "tsan",
+      "inherits": "base",
+      "displayName": "Debug + ThreadSanitizer",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "RISKSIM_SANITIZER": "tsan"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "debug", "configurePreset": "debug" },
+    { "name": "release", "configurePreset": "release" },
+    { "name": "asan-ubsan", "configurePreset": "asan-ubsan" },
+    { "name": "tsan", "configurePreset": "tsan" }
+  ],
+  "testPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "asan-ubsan",
+      "configurePreset": "asan-ubsan",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

@@ -1,0 +1,102 @@
+name: bench
+
+# Microbenchmark regression gate. Builds the Release bench harness, runs the
+# Google Benchmark target as JSON, and tracks history on the gh-pages branch via
+# github-action-benchmark. A regression past the alert threshold fails the job
+# and comments on the PR.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "engine/**"
+      - "bench/**"
+      - "cmake/**"
+      - "CMakeLists.txt"
+      - "CMakePresets.json"
+      - ".github/workflows/bench.yml"
+  # Also refresh the baseline on main so PRs compare against the latest tip.
+  push:
+    branches: [main]
+    paths:
+      - "engine/**"
+      - "bench/**"
+      - "cmake/**"
+      - "CMakeLists.txt"
+      - ".github/workflows/bench.yml"
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  # Needed by github-action-benchmark to push history to gh-pages and comment.
+  contents: write
+  pull-requests: write
+
+jobs:
+  benchmark:
+    name: google-benchmark
+    runs-on: ubuntu-latest
+    env:
+      CC: clang
+      CXX: clang++
+      CPM_SOURCE_CACHE: ${{ github.workspace }}/.cpm-cache
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ccache
+
+      - name: Cache CPM sources
+        uses: actions/cache@v4
+        with:
+          path: .cpm-cache
+          key: cpm-Linux-${{ hashFiles('cmake/**', 'engine/**/CMakeLists.txt', 'CMakeLists.txt') }}
+          restore-keys: |
+            cpm-Linux-
+
+      - name: Configure (Release + bench)
+        run: >
+          cmake -S . -B build/bench
+          -DRISKSIM_BUILD_BENCH=ON
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build bench harness
+        run: cmake --build build/bench
+
+      - name: Run Google Benchmark (JSON)
+        run: |
+          # Locate the Google Benchmark executable produced under build/bench.
+          bin="$(find build/bench -type f -name 'risksim_bench' -perm -u+x | head -n1)"
+          if [ -z "$bin" ]; then
+            echo "::error::Could not find the 'risksim_bench' executable under build/bench."
+            find build/bench -type f -perm -u+x
+            exit 1
+          fi
+          echo "Running $bin"
+          "$bin" \
+            --benchmark_format=json \
+            --benchmark_min_time=1s \
+            --benchmark_repetitions=5 \
+            --benchmark_report_aggregates_only=true \
+            > benchmark_result.json
+
+      - name: Store result and check for regressions
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: RiskSim C++ Benchmarks
+          tool: googlecpp
+          output-file-path: benchmark_result.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench
+          # Only publish history on pushes to main; PRs compare but do not write.
+          auto-push: ${{ github.event_name == 'push' }}
+          alert-threshold: "125%"
+          fail-on-alert: true
+          comment-on-alert: true
+          summary-always: true

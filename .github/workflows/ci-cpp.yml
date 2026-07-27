@@ -1,0 +1,194 @@
+name: ci-cpp
+
+# C++23 engine: build + test the debug preset across OS/compiler, run the
+# sanitizer presets on Linux, and lint (clang-format + clang-tidy).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "engine/**"
+      - "proto/schema.json"
+      - "proto/VERSION"
+      - "cmake/**"
+      - "CMakeLists.txt"
+      - "CMakePresets.json"
+      - ".clang-format"
+      - ".clang-tidy"
+      - ".github/workflows/ci-cpp.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "engine/**"
+      - "proto/schema.json"
+      - "proto/VERSION"
+      - "cmake/**"
+      - "CMakeLists.txt"
+      - "CMakePresets.json"
+      - ".clang-format"
+      - ".clang-tidy"
+      - ".github/workflows/ci-cpp.yml"
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-cpp-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: build+test (${{ matrix.os }} / ${{ matrix.compiler }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        compiler: [gcc, clang]
+        exclude:
+          # Apple toolchain is clang; gcc on macOS is just an alias — skip it.
+          - os: macos-latest
+            compiler: gcc
+    env:
+      CPM_SOURCE_CACHE: ${{ github.workspace }}/.cpm-cache
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select compiler
+        shell: bash
+        run: |
+          if [ "${{ matrix.compiler }}" = "gcc" ]; then
+            echo "CC=gcc" >> "$GITHUB_ENV"
+            echo "CXX=g++" >> "$GITHUB_ENV"
+          else
+            echo "CC=clang" >> "$GITHUB_ENV"
+            echo "CXX=clang++" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install build tools (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ccache
+
+      - name: Install build tools (macOS)
+        if: runner.os == 'macOS'
+        run: brew install cmake ccache
+
+      - name: Cache CPM sources
+        uses: actions/cache@v4
+        with:
+          path: .cpm-cache
+          key: cpm-${{ runner.os }}-${{ hashFiles('cmake/**', 'engine/**/CMakeLists.txt', 'CMakeLists.txt') }}
+          restore-keys: |
+            cpm-${{ runner.os }}-
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ runner.os }}-${{ matrix.compiler }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ matrix.compiler }}-
+
+      - name: Configure (debug)
+        run: >
+          cmake --preset debug
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build (debug)
+        run: cmake --build --preset debug
+
+      - name: Test (debug)
+        run: ctest --preset debug
+
+  sanitizers:
+    name: sanitizer (${{ matrix.preset }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [asan-ubsan, tsan]
+    env:
+      # Clang gives the most complete sanitizer coverage.
+      CC: clang
+      CXX: clang++
+      CPM_SOURCE_CACHE: ${{ github.workspace }}/.cpm-cache
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ccache
+
+      - name: Cache CPM sources
+        uses: actions/cache@v4
+        with:
+          path: .cpm-cache
+          key: cpm-Linux-${{ hashFiles('cmake/**', 'engine/**/CMakeLists.txt', 'CMakeLists.txt') }}
+          restore-keys: |
+            cpm-Linux-
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-san-${{ matrix.preset }}-${{ github.sha }}
+          restore-keys: |
+            ccache-san-${{ matrix.preset }}-
+
+      - name: Configure (${{ matrix.preset }})
+        run: >
+          cmake --preset ${{ matrix.preset }}
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build (${{ matrix.preset }})
+        run: cmake --build --preset ${{ matrix.preset }}
+
+      - name: Test (${{ matrix.preset }})
+        env:
+          # Abort on first sanitizer report and symbolize.
+          ASAN_OPTIONS: halt_on_error=1:abort_on_error=1:strict_string_checks=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+          TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+        run: ctest --preset ${{ matrix.preset }}
+
+  lint:
+    name: lint (clang-format + clang-tidy)
+    runs-on: ubuntu-latest
+    env:
+      CPM_SOURCE_CACHE: ${{ github.workspace }}/.cpm-cache
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install lint tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format clang-tidy cmake
+
+      - name: clang-format (--dry-run --Werror)
+        run: |
+          mapfile -t files < <(find engine -type f \( -name '*.cpp' -o -name '*.hpp' \) \
+            -not -path '*/wire_generated.hpp')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No C++ sources found to format-check."
+            exit 0
+          fi
+          clang-format --dry-run --Werror "${files[@]}"
+
+      - name: clang-tidy (only if a config exists)
+        run: |
+          if [ ! -f .clang-tidy ]; then
+            echo ".clang-tidy not present — skipping clang-tidy."
+            exit 0
+          fi
+          # clang-tidy needs a compilation database; a configure step generates it
+          # (CMAKE_EXPORT_COMPILE_COMMANDS is ON in CMakeLists.txt).
+          cmake --preset debug
+          mapfile -t files < <(find engine -type f -name '*.cpp' \
+            -not -path '*/tests/*')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No translation units to analyze."
+            exit 0
+          fi
+          clang-tidy -p build/debug "${files[@]}"

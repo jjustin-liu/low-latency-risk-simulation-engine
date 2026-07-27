@@ -1,0 +1,49 @@
+name: ci-proto-drift
+
+# Enforce the single source of truth: proto/schema.json + proto/VERSION are the
+# only place the wire contract is defined. Regenerate the C++ header and the TS
+# decoder and fail if either committed file is stale.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "proto/**"
+      - "engine/runtime/include/risksim/runtime/wire_generated.hpp"
+      - "web/src/generated/wire.ts"
+      - ".github/workflows/ci-proto-drift.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "proto/**"
+      - "engine/runtime/include/risksim/runtime/wire_generated.hpp"
+      - "web/src/generated/wire.ts"
+      - ".github/workflows/ci-proto-drift.yml"
+
+concurrency:
+  group: ci-proto-drift-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  drift:
+    name: wire codegen drift check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Regenerate wire bindings
+        run: node proto/codegen.mjs
+
+      - name: Fail if generated files are stale
+        run: |
+          git diff --exit-code \
+            engine/runtime/include/risksim/runtime/wire_generated.hpp \
+            web/src/generated/wire.ts \
+          || {
+            echo "::error::Generated wire bindings are out of date."
+            echo "Run 'node proto/codegen.mjs' and commit the result."
+            exit 1
+          }

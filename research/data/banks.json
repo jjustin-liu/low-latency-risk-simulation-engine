@@ -1,0 +1,18 @@
+{
+  "_note": "Large US banks. total_assets_busd are APPROXIMATE public figures (~2024 10-K/FR Y-9C order of magnitude), used only to scale the interbank marginals and equity in the network reconstruction. The true bilateral exposure matrix is confidential and is reconstructed from these marginals by maximum entropy / minimum density.",
+  "interbank_fraction": 0.15,
+  "capital_ratio": 0.08,
+  "banks": [
+    { "ticker": "JPM",  "name": "JPMorgan Chase",   "total_assets_busd": 4000 },
+    { "ticker": "BAC",  "name": "Bank of America",  "total_assets_busd": 3300 },
+    { "ticker": "C",    "name": "Citigroup",         "total_assets_busd": 2400 },
+    { "ticker": "WFC",  "name": "Wells Fargo",       "total_assets_busd": 1930 },
+    { "ticker": "GS",   "name": "Goldman Sachs",     "total_assets_busd": 1680 },
+    { "ticker": "MS",   "name": "Morgan Stanley",    "total_assets_busd": 1260 },
+    { "ticker": "USB",  "name": "U.S. Bancorp",      "total_assets_busd": 680  },
+    { "ticker": "PNC",  "name": "PNC Financial",     "total_assets_busd": 560  },
+    { "ticker": "TFC",  "name": "Truist Financial",  "total_assets_busd": 535  },
+    { "ticker": "COF",  "name": "Capital One",       "total_assets_busd": 480  },
+    { "ticker": "SCHW", "name": "Charles Schwab",    "total_assets_busd": 493  }
+  ]
+}

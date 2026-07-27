@@ -1,0 +1,19 @@
+---
+Checks: >
+  bugprone-*,
+  performance-*,
+  concurrency-*,
+  cppcoreguidelines-avoid-non-const-global-variables,
+  cppcoreguidelines-pro-type-member-init,
+  misc-*,
+  modernize-use-nullptr,
+  modernize-use-override,
+  readability-identifier-naming,
+  -misc-non-private-member-variables-in-classes,
+  -misc-include-cleaner,
+  -bugprone-easily-swappable-parameters,
+  -readability-identifier-length
+WarningsAsErrors: ''
+HeaderFilterRegex: 'engine/(core|sim|runtime)/'
+FormatStyle: file
+...

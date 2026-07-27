@@ -1,0 +1,16 @@
+{
+  "name": "risksim-bridge",
+  "version": "1.0.0",
+  "description": "Bridge service between the RiskSim C++ engine binary frame stream and browser WebSocket clients.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.mjs"
+  },
+  "dependencies": {
+    "ws": "8.21.1"
+  }
+}

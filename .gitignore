@@ -1,0 +1,53 @@
+# Build
+build/
+build-*/
+cmake-build-*/
+*.o
+*.a
+*.so
+*.dylib
+CMakeCache.txt
+CMakeFiles/
+_deps/
+
+# CPM cache (kept out of tree; set CPM_SOURCE_CACHE to reuse)
+.cpm-cache/
+
+# Node / JS
+node_modules/
+.next/
+.turbo/
+dist/
+*.tsbuildinfo
+.vercel/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# Generated bindings (regenerated + drift-checked in CI, but noisy locally)
+# NOTE: generated bindings ARE committed per ADR-001; do not ignore them.
+
+# Data artifacts (large binaries live in data/ but not raw dumps)
+*.tmp
+bench/results/*.local.*
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+.cache/
+.pytest_cache/
+compile_commands.json
+
+# docs kept local, not published
+*.md
+NOTICE
+.claude/
+research/reports/
