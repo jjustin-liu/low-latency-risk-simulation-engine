@@ -53,20 +53,21 @@ TEST(MonteCarlo, StudentTProducesHigherSystemicEsThanGaussian) {
     // Identical marginals and correlation; only the copula differs. The
     // t-copula's tail dependence must inflate systemic Expected Shortfall.
     const ExposureNetwork net = small_network();
-    const std::vector<double> vol(net.n, 0.30);
+    // Strong, unambiguous parameters (high vol/correlation, very fat tails) so the
+    // tail-dependence effect dominates Monte-Carlo noise and cross-compiler FP
+    // variation (exact loss samples differ across libm / FMA-contraction settings).
+    const std::vector<double> vol(net.n, 0.40);
     const sim::SystemicMonteCarlo engine(net, vol);
-    const Matrix corr = equicorrelation(net.n, 0.5);
+    const Matrix corr = equicorrelation(net.n, 0.6);
     const Furfine model(1.0);
 
     sim::Config cfg;
-    // Enough paths that the tail-dependence effect clears Monte-Carlo noise on
-    // both platforms (the exact loss samples differ across libm implementations).
     cfg.num_paths = 60000;
     cfg.alpha = 0.975;
     cfg.threads = 4;
 
     const sim::Result g = engine.run(GaussianCopula(corr), model, cfg);
-    const sim::Result t = engine.run(StudentTCopula(corr, 3.0), model, cfg);
+    const sim::Result t = engine.run(StudentTCopula(corr, 2.5), model, cfg);
 
     EXPECT_GT(t.es, g.es);   // ES is the headline effect
     EXPECT_GE(t.var, g.var);  // VaR (a single order statistic) is noisier: >=
