@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cmath>
 #include <stdexcept>
 
 #include "risksim/linalg.hpp"

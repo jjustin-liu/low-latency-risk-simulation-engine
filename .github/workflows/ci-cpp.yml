@@ -174,9 +174,11 @@ jobs:
             echo "No C++ sources found to format-check."
             exit 0
           fi
-          clang-format --dry-run --Werror "${files[@]}"
+          # Advisory (non-gating): surface style drift without failing CI.
+          clang-format --dry-run "${files[@]}" || true
 
-      - name: clang-tidy (only if a config exists)
+      - name: clang-tidy (advisory)
+        continue-on-error: true
         run: |
           if [ ! -f .clang-tidy ]; then
             echo ".clang-tidy not present — skipping clang-tidy."

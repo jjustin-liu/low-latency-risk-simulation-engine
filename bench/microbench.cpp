@@ -4,6 +4,7 @@
 // (the bench.yml CI workflow feeds this JSON to github-action-benchmark)
 #include <benchmark/benchmark.h>
 
+#include <string>
 #include <vector>
 
 #include "risksim/contagion.hpp"
