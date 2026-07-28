@@ -12,9 +12,14 @@
 import { spawn } from "node:child_process";
 import { createReadStream } from "node:fs";
 import http from "node:http";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 
 import { FrameReader } from "./framer.mjs";
+
+// Repo root, resolved relative to this file (bridge/src/server.mjs).
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 // ----------------------------------------------------------------------------
 // Config (env)
@@ -22,11 +27,10 @@ import { FrameReader } from "./framer.mjs";
 const MODE = process.env.RISKSIM_MODE || "live";
 const PORT = Number.parseInt(process.env.PORT || "8080", 10);
 
-const DEFAULT_ENGINE =
-  "/Users/justin/Desktop/risksim/build/release/engine/runtime/risksim_engine";
+const DEFAULT_ENGINE = join(REPO_ROOT, "build/release/engine/runtime/risksim_engine");
 const ENGINE_PATH = process.env.RISKSIM_ENGINE || DEFAULT_ENGINE;
 
-const DEFAULT_REPLAY = "/Users/justin/Desktop/risksim/data/replay.bin";
+const DEFAULT_REPLAY = join(REPO_ROOT, "data/replay.bin");
 const REPLAY_PATH = process.env.RISKSIM_REPLAY || DEFAULT_REPLAY;
 
 // Replay emit cadence (~10 Hz to mirror the default engine rate).

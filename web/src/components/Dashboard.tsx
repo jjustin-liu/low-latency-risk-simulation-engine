@@ -31,7 +31,7 @@ export default function Dashboard() {
             className="text-sm font-semibold tracking-[0.2em]"
             style={{ color: "var(--ink)" }}
           >
-            OPTI<span style={{ color: "var(--cyan)" }}>RISK</span>
+            RISK<span style={{ color: "var(--cyan)" }}>SIM</span>
           </span>
           <span className="tt-label hidden sm:inline">
             interbank default-contagion · real-time
