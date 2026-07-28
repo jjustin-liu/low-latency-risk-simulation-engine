@@ -34,6 +34,7 @@ struct Config {
     std::uint64_t seed = 0x0071715C0FFEEULL;
     bool antithetic = true;  // pair each draw with its radial reflection
     int threads = 0;         // 0 => hardware concurrency
+    std::uint32_t hist_bins = 48;  // loss-distribution histogram resolution (0 => none)
 };
 
 struct Result {
@@ -49,6 +50,13 @@ struct Result {
     double cv_mean = 0.0;             // control-variate-adjusted mean
     double cv_std_error = 0.0;        // its (smaller) standard error
     double variance_reduction = 1.0;  // plain Var / cv Var (>1 means it helped)
+
+    // Systemic-loss histogram over [0, hist_max] with hist_bins equal-width bins.
+    // hist[k] = fraction of samples whose loss falls in bin k (sums to ~1). Empty
+    // if cfg.hist_bins == 0. Feeds the frontend loss-distribution chart with the
+    // VaR/ES cut-lines drawn on the same axis.
+    std::vector<float> loss_hist;
+    double hist_max = 0.0;
 };
 
 class SystemicMonteCarlo {
@@ -106,7 +114,7 @@ public:
             for (auto& th : pool) th.join();
         }
 
-        return reduce(losses, directs, cfg.alpha);
+        return reduce(losses, directs, cfg.alpha, cfg.hist_bins);
     }
 
 private:
@@ -127,8 +135,8 @@ private:
         out_loss = model.propagate(net_, shock).system_loss;
     }
 
-    Result reduce(std::span<const double> losses, std::span<const double> directs,
-                  double alpha) const {
+    Result reduce(std::span<const double> losses, std::span<const double> directs, double alpha,
+                  std::uint32_t hist_bins) const {
         Result r;
         r.samples = losses.size();
         if (losses.empty()) return r;
@@ -171,6 +179,23 @@ private:
         } else {
             r.cv_mean = r.mean_loss;
             r.cv_std_error = r.std_error;
+        }
+
+        // Loss-distribution histogram over [0, hi]. Losses are non-negative, so
+        // the left edge is 0; the right edge is the worst observed loss. Stored as
+        // per-bin sample fractions so the chart is scale-free and the bars sum to 1.
+        if (hist_bins > 0) {
+            const std::size_t bins = hist_bins;
+            r.loss_hist.assign(bins, 0.0f);
+            r.hist_max = hi > 0.0 ? hi : 1.0;
+            const double inv_width = static_cast<double>(bins) / r.hist_max;
+            for (double l : losses) {
+                auto b = static_cast<std::size_t>(std::max(0.0, l) * inv_width);
+                if (b >= bins) b = bins - 1;  // the max lands in the last bin
+                r.loss_hist[b] += 1.0f;
+            }
+            const float inv_n = 1.0f / static_cast<float>(losses.size());
+            for (float& c : r.loss_hist) c *= inv_n;
         }
         return r;
     }

@@ -6,7 +6,7 @@ add_library(risksim_runtime STATIC
 )
 target_include_directories(risksim_runtime PUBLIC include)
 target_link_libraries(risksim_runtime
-    PUBLIC risksim::core risksim::sim Threads::Threads
+    PUBLIC risksim::core risksim::sim risksim::market Threads::Threads
     PRIVATE risksim_options)
 
 add_library(risksim::runtime ALIAS risksim_runtime)

@@ -30,9 +30,15 @@ ctx.onmessage = (event: MessageEvent<DecodeRequest>) => {
     nodeValue: snap.node_value,
     nodeX: snap.node_x,
     nodeY: snap.node_y,
+    nodePd: snap.node_pd,
     edgeSrc: snap.edge_src,
     edgeDst: snap.edge_dst,
     edgeFlow: snap.edge_flow,
+    lossHist: snap.loss_hist,
+    histMax: snap.hist_max,
+    nAssets: snap.n_assets,
+    assetImpact: snap.asset_impact,
+    assetDepth: snap.asset_depth,
   };
 
   const response: DecodeResponse = { ok: true, snapshot: out, decodeMs, recvTime };

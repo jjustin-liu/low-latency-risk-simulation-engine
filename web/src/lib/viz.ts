@@ -73,3 +73,39 @@ export function fmtInt(v: number): string {
 function sign(v: number): string {
   return v < 0 ? "-" : "";
 }
+
+// ---- plain-language helpers ------------------------------------------------
+
+/** A bank is "core" (systemically important) if it sits near the layout centre.
+ *  The generator places the dealer core at radius ~0.28 and the periphery at ~1. */
+export function isCore(x: number, y: number): boolean {
+  return x * x + y * y < 0.36;
+}
+
+/** Plain word for a health value in [0,1]. */
+export function healthLabel(h: number): string {
+  if (h >= 0.95) return "healthy";
+  if (h >= 0.7) return "under stress";
+  if (h >= 0.3) return "distressed";
+  if (h > 0.02) return "near failure";
+  return "failed";
+}
+
+export interface StressLevel {
+  label: string;
+  color: string;
+  hint: string;
+  /** 0..3, for optional intensity effects. */
+  rank: number;
+}
+
+/** Headline system status derived from average network health + defaults. */
+export function stressLevel(meanHealth: number, numDefaults: number): StressLevel {
+  if (numDefaults === 0 && meanHealth >= 0.985)
+    return { label: "CALM", color: "var(--green)", hint: "no distress in the system", rank: 0 };
+  if (meanHealth >= 0.9)
+    return { label: "ELEVATED", color: "var(--amber)", hint: "localized stress building", rank: 1 };
+  if (meanHealth >= 0.75)
+    return { label: "STRESSED", color: "#f0883e", hint: "contagion spreading", rank: 2 };
+  return { label: "CRITICAL", color: "var(--red)", hint: "systemic failure underway", rank: 3 };
+}

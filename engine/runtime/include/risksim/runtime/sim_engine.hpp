@@ -11,9 +11,11 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <vector>
 
+#include "risksim/market/fire_sale.hpp"
 #include "risksim/network.hpp"
 
 namespace risksim::runtime {
@@ -29,6 +31,23 @@ struct EngineConfig {
     double alpha = 0.975;
     int mc_every = 10;          // refresh VaR/ES every N ticks
     bool auto_scenario = true;  // self-driving demo shocks
+    // Recapitalization: each bank's equity is raised to at least this multiple of
+    // its single largest counterparty exposure. Higher => distress attenuates more
+    // (contained cascades); lower => contagion spreads further. 3.5 keeps a single
+    // periphery failure local while letting a full core shock reach the periphery.
+    double cap_cushion = 3.5;
+
+    // Per-bank Merton PD: default point / horizon / drift for DD = [ln(V/D) +
+    // (mu-0.5 sigma^2)T]/(sigma sqrt T). V falls as the tick's contagion impairs a
+    // bank's equity, so PD rises as distress spreads.
+    double merton_mu = 0.05;
+    double merton_horizon = 1.0;
+
+    // Fire-sale (price-mediated) channel: a handful of tradeable assets with
+    // overlapping bank holdings, cleared through the real limit-order book each
+    // tick. Orthogonal to the counterparty channel above.
+    std::size_t n_assets = 6;
+    std::uint32_t hist_bins = 48;  // Monte-Carlo loss-distribution resolution
 };
 
 class SimEngine {
@@ -57,6 +76,18 @@ private:
     EngineConfig cfg_;
     ExposureNetwork net_;
 
+    // Merton default-point per bank (D in the DD formula) and unstressed asset
+    // value (V at zero shock); PD is recomputed each tick from the current health.
+    std::vector<double> debt_;
+    std::vector<double> asset_value0_;
+
+    // Fire-sale channel: a matching-engine-backed price-mediated cascade over
+    // `n_assets_` assets with overlapping holdings. Rebuilt once; run each tick.
+    std::optional<market::FireSaleModel> fire_;
+    std::size_t n_assets_ = 0;
+    market::BidLadder ladder_;
+    std::vector<std::int64_t> asset_price0_;  // per-asset mid in ticks
+
     std::vector<float> node_x_;
     std::vector<float> node_y_;
     std::vector<float> node_value_;
@@ -69,10 +100,18 @@ private:
 
     std::uint64_t tick_ = 0;
     int control_override_ticks_ = 0;  // >0 while an operator shock overrides auto
+    int shock_age_ = 0;  // ticks a shock has been active; caps contagion rounds so it spreads
     double var_ = 0.0;
     double es_ = 0.0;
     float total_loss_ = 0.0f;
     std::uint32_t num_defaults_ = 0;
+
+    // Per-tick visualization outputs (serialized into each frame).
+    std::vector<float> node_pd_;       // Merton PD per bank
+    std::vector<float> loss_hist_;     // MC systemic-loss distribution (bin fractions)
+    double loss_hist_max_ = 0.0;       // right edge of the histogram
+    std::vector<float> asset_impact_;  // fractional fire-sale price drop per asset
+    std::vector<float> asset_depth_;   // remaining book liquidity fraction per asset
 };
 
 }  // namespace risksim::runtime

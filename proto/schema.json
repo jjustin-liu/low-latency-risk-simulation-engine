@@ -20,16 +20,23 @@
         { "name": "var", "type": "f32", "doc": "systemic VaR at alpha" },
         { "name": "es", "type": "f32", "doc": "systemic Expected Shortfall at alpha" },
         { "name": "total_loss", "type": "f32" },
-        { "name": "num_defaults", "type": "u32" }
+        { "name": "num_defaults", "type": "u32" },
+        { "name": "n_hist", "type": "u32", "doc": "number of Monte-Carlo loss-distribution bins" },
+        { "name": "hist_max", "type": "f32", "doc": "loss value at the right edge of the last bin (left edge = 0)" },
+        { "name": "n_assets", "type": "u32", "doc": "number of tradeable assets in the fire-sale channel" }
       ],
       "arrays": [
         { "name": "node_health", "type": "f32", "count": "n_nodes", "doc": "1=healthy .. 0=fully impaired" },
         { "name": "node_value", "type": "f32", "count": "n_nodes", "doc": "total assets (marker size)" },
         { "name": "node_x", "type": "f32", "count": "n_nodes" },
         { "name": "node_y", "type": "f32", "count": "n_nodes" },
+        { "name": "node_pd", "type": "f32", "count": "n_nodes", "doc": "Merton probability of default in [0,1]" },
         { "name": "edge_src", "type": "u32", "count": "n_edges" },
         { "name": "edge_dst", "type": "u32", "count": "n_edges" },
-        { "name": "edge_flow", "type": "f32", "count": "n_edges", "doc": "exposure amount (edge width)" }
+        { "name": "edge_flow", "type": "f32", "count": "n_edges", "doc": "exposure amount (edge width)" },
+        { "name": "loss_hist", "type": "f32", "count": "n_hist", "doc": "MC systemic-loss histogram; bin k counts paths with loss in [k,k+1)*hist_max/n_hist" },
+        { "name": "asset_impact", "type": "f32", "count": "n_assets", "doc": "fractional fire-sale price drop per asset in [0,1]" },
+        { "name": "asset_depth", "type": "f32", "count": "n_assets", "doc": "fraction of order-book bid liquidity still resting per asset (1=full, 0=exhausted)" }
       ]
     }
   ]

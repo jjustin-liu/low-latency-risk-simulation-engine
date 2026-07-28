@@ -266,7 +266,9 @@ function startLive() {
 }
 
 function parseEngineArgs(raw) {
-  if (!raw) return [];
+  // Default to a user-driven engine (no built-in auto-scenario) so operator
+  // shocks and "clear" aren't fought by the engine's ambient scenario.
+  if (!raw) return ["--no-auto"];
   // Simple whitespace split; engine args are flags + numbers, no quoting needed.
   return raw.trim().split(/\s+/).filter(Boolean);
 }

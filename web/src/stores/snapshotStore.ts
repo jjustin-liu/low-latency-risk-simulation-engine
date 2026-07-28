@@ -15,6 +15,8 @@ interface SnapshotState {
   numDefaults: number;
   nNodes: number;
   nEdges: number;
+  /** Mean of node health in [0,1]; 1 = whole system healthy. Drives the status. */
+  meanHealth: number;
   esHistory: number[];
   varHistory: number[];
   ingest: (snap: DecodedSnapshot) => void;
@@ -31,6 +33,7 @@ const initial = {
   numDefaults: 0,
   nNodes: 0,
   nEdges: 0,
+  meanHealth: 1,
   esHistory: [] as number[],
   varHistory: [] as number[],
 };
@@ -44,6 +47,9 @@ export const useSnapshotStore = create<SnapshotState>((set) => ({
       if (esHistory.length > ES_HISTORY_LEN) esHistory.shift();
       const varHistory = [...state.varHistory, snap.var];
       if (varHistory.length > ES_HISTORY_LEN) varHistory.shift();
+      let sum = 0;
+      for (let i = 0; i < snap.nNodes; i++) sum += snap.nodeHealth[i];
+      const meanHealth = snap.nNodes > 0 ? sum / snap.nNodes : 1;
       return {
         frameId: state.frameId + 1,
         hasData: true,
@@ -54,6 +60,7 @@ export const useSnapshotStore = create<SnapshotState>((set) => ({
         numDefaults: snap.numDefaults,
         nNodes: snap.nNodes,
         nEdges: snap.nEdges,
+        meanHealth,
         esHistory,
         varHistory,
       };
